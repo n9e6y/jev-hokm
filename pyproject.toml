@@ -1,0 +1,48 @@
+[project]
+name = "hokm"
+version = "0.1.0"
+description = "Hokm (Persian trick-taking card game) with bots driven by Jev"
+readme = "README.md"
+authors = [
+    { name = "Nima", email = "n9e6y@outlook.com" }
+]
+requires-python = ">=3.12"
+dependencies = []
+
+[project.scripts]
+hokm = "hokm:main"
+
+[build-system]
+requires = ["uv_build>=0.12.19,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "hypothesis>=6.168.1",
+    "pyright>=1.1.414",
+    "pytest>=9.1.1",
+    "ruff>=0.16.9",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+# pycodestyle, pyflakes, isort, pyupgrade, bugbear, simplify
+select = ["E", "W", "F", "I", "UP", "B", "SIM"]
+
+[tool.pyright]
+include = ["src", "tests"]
+pythonVersion = "3.12"
+venvPath = "."
+venv = ".venv"
+typeCheckingMode = "standard"
+# CLAUDE.md: strict for the pure engine and the seat views
+strict = ["src/hokm/engine", "src/hokm/views"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# importlib mode lets tests/ mirror src/hokm/ without unique file names or __init__.py
+addopts = ["--import-mode=importlib", "--strict-markers", "-m", "not live_jev"]
+markers = ["live_jev: calls the real Jev API (opt-in: uv run pytest -m live_jev)"]

@@ -240,6 +240,6 @@ web/dist/
 /.claude
 docs
 CLAUDE.md
-RULES.md
-SEAT_VIEW.md
 STAGE.md
+.DS_Store
+.idea
