@@ -216,3 +216,30 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.hypothesis/
+# Secrets and personal settings
+.env
+.env.local
+CLAUDE.local.md
+.claude/settings.local.json
+# Outputs
+runs/
+*.csv
+!tests/fixtures/**/*.csv
+# Frontend
+node_modules/
+web/dist/
+
+# CODE
+/.claude
+docs
+CLAUDE.md
+RULES.md
+SEAT_VIEW.md
+STAGE.md
