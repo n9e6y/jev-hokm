@@ -7,7 +7,7 @@ from hokm.engine.errors import NotYourTurn
 from hokm.engine.events import CardsDealt, MatchStarted, RoundStarted, TrumpDeclared
 from hokm.engine.rules import apply, deal_order, legal_actions, new_match
 from hokm.engine.state import Phase
-from hokm.engine.variants import MatchConfig, Mode, seats
+from hokm.engine.variants import MatchConfig, Mode, Seat, seats
 
 SEEDS = range(8)
 
@@ -108,3 +108,32 @@ def test_R5_2_opponent_sees_their_five_only_after_trump() -> None:
     )
     assert len(state.hand(opponent)) == 5
     assert state.phase is Phase.DISCARD
+
+
+# Written out by hand from R2.1 (S → E → N → W), not computed with the engine's own helpers.
+DEAL_ORDERS: dict[Seat, tuple[Seat, ...]] = {
+    "S": ("S", "E", "N", "W"),
+    "E": ("E", "N", "W", "S"),
+    "N": ("N", "W", "S", "E"),
+    "W": ("W", "S", "E", "N"),
+}
+
+
+@pytest.mark.parametrize("hakem", ["S", "E", "N", "W"])
+def test_R4_1_R4_4_deal_goes_counter_clockwise_from_the_hakem(hakem: Seat) -> None:
+    assert deal_order("4p", hakem) == DEAL_ORDERS[hakem]
+    assert deal_order("2p", "A") == ("A", "B") and deal_order("2p", "B") == ("B", "A")
+    # find a seeded match with this hakem and check the actual cards against the fixed order
+    seed = next(
+        s for s in range(200) if new_match(MatchConfig.new("4p", 5, s))[0].round.hakem == hakem
+    )
+    config = MatchConfig.new("4p", 5, seed)
+    state, _ = new_match(config)
+    deck = shuffled_deck(config, 1)
+    for i, seat in enumerate(DEAL_ORDERS[hakem]):
+        assert set(state.hand(seat)) == set(deck[5 * i : 5 * i + 5])
+    state, events = apply(state, ChooseTrump(hakem, Suit.HEARTS))
+    for i, seat in enumerate(DEAL_ORDERS[hakem]):
+        later = set(deck[20 + 4 * i : 24 + 4 * i]) | set(deck[36 + 4 * i : 40 + 4 * i])
+        assert set(state.hand(seat)) == set(deck[5 * i : 5 * i + 5]) | later
+    assert [e.seat for e in events if isinstance(e, CardsDealt)] == list(DEAL_ORDERS[hakem])

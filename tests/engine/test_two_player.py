@@ -1,4 +1,5 @@
 import random
+from dataclasses import replace
 from itertools import pairwise
 
 import pytest
@@ -8,8 +9,8 @@ from hokm.engine.cards import Card, Suit, parse_cards
 from hokm.engine.errors import IllegalAction, NotYourTurn
 from hokm.engine.events import CardDiscarded, CardsDealt, CardShown, DrawResolved
 from hokm.engine.rules import apply, deal_order, legal_actions, new_match
-from hokm.engine.state import MatchState, Phase
-from hokm.engine.variants import MatchConfig, Seat
+from hokm.engine.state import MatchState, Phase, replace_at
+from hokm.engine.variants import MatchConfig, Seat, seat_index
 from tests.engine.support import Chooser, advance, in_phase, start
 
 
@@ -147,3 +148,38 @@ def test_removed_cards_never_appear() -> None:
     everything = {c for s in ("A", "B") for c in (*state.hand(s), *state.discards(s))}
     assert len(everything) == 50
     assert not everything & set(parse_cards("2S 2C"))
+
+
+@pytest.mark.parametrize("seed", range(10))
+def test_R5_4_R5_5_every_draw_turn_follows_the_keep_discard_rule(seed: int) -> None:
+    """Checked on all 20 turns against the stock order, including the last two cards."""
+    rng = random.Random(seed)
+    state = _draw_phase(seed)
+    for turn in range(20):
+        seat = state.round.to_act
+        assert seat is not None
+        other = _opponent(state) if seat == state.round.hakem else state.round.hakem
+        c1, c2 = state.round.stock[:2]
+        keep = rng.random() < 0.5
+        before = (state.hand(seat), state.discards(seat), state.hand(other), state.discards(other))
+        state, events = apply(state, DrawDecision(seat, keep))
+        kept, dropped = (c1, c2) if keep else (c2, c1)
+        assert set(state.hand(seat)) == {*before[0], kept}  # exactly one card added (R5.5)
+        assert state.discards(seat) == (*before[1], dropped)
+        assert (state.hand(other), state.discards(other)) == before[2:]  # other seat untouched
+        assert events[0] == DrawResolved(seat, kept, dropped)
+        if turn < 19:
+            assert events[1] == CardShown(other, state.round.stock[0])
+        else:
+            assert len(events) == 1 and state.phase is Phase.PLAY  # nothing left to show
+
+
+def test_R5_5_engine_refuses_to_start_play_with_a_wrong_hand_size() -> None:
+    state, _ = advance(_draw_phase(2), lambda s: s.round.draw_turns_done == 19)
+    seat = state.round.to_act
+    assert seat is not None
+    extra = next(c for c in state.discards(seat))
+    hands = replace_at(state.round.hands, seat_index("2p", seat), (*state.hand(seat), extra))
+    broken = replace(state, round=replace(state.round, hands=hands))
+    with pytest.raises(AssertionError, match="R5.5"):
+        apply(broken, DrawDecision(seat, keep=True))

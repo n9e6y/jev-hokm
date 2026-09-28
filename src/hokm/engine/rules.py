@@ -1,4 +1,4 @@
-"""Game flow: `new_match`, `legal_actions`, `apply` (R4–R7)."""
+"""Game flow: `new_match`, `legal_actions`, `apply` (R3–R8)."""
 
 from __future__ import annotations
 
@@ -23,11 +23,14 @@ from hokm.engine.events import (
     CardShown,
     DrawResolved,
     Event,
+    MatchEnded,
     MatchStarted,
+    RoundEnded,
     RoundStarted,
     TrickWon,
     TrumpDeclared,
 )
+from hokm.engine.scoring import match_winner, next_hakem, round_winner, score_round
 from hokm.engine.state import (
     MatchState,
     Phase,
@@ -151,8 +154,7 @@ def apply(state: MatchState, action: Action) -> Transition:
         case PlayCard():
             return _play(state, action)
         case NextRound():
-            _check_phase(state, Phase.ROUND_END, action)
-            raise NotImplementedError("round end arrives in task 1.10")
+            return _next_round(state, action)
 
 
 def _check_phase(state: MatchState, phase: Phase, action: Action) -> None:
@@ -295,11 +297,39 @@ def _play(state: MatchState, action: PlayCard) -> Transition:
     s = side_index(state.mode, side_of(winner))
     tricks_won = replace_at(r.tricks_won, s, r.tricks_won[s] + 1)
     events.append(TrickWon(trick.number, winner, tricks_won))
-    r = replace(
-        r,
-        tricks_won=tricks_won,
-        tricks=(*r.tricks, replace(trick, winner=winner)),
-        trick=Trick(trick.number + 1, winner),  # R7.4 the winner leads next
-        to_act=winner,
-    )
+    r = replace(r, tricks_won=tricks_won, tricks=(*r.tricks, replace(trick, winner=winner)))
+    if round_winner(state.mode, tricks_won) is not None:
+        # R8.1 the round ends the moment a side has 7 tricks; remaining cards are not played
+        return _end_round(state, replace(r, trick=None, to_act=None), events)
+    r = replace(r, trick=Trick(trick.number + 1, winner), to_act=winner)  # R7.4 winner leads
     return _with_round(state, Phase.PLAY, r), tuple(events)
+
+
+# --- round and match end -----------------------------------------------------------------
+
+
+def _end_round(state: MatchState, r: RoundState, events: list[Event]) -> Transition:
+    mode = state.mode
+    assert r.trump is not None
+    winner, points, kot = score_round(mode, r.hakem, r.tricks_won)  # R8.2, R8.3
+    w = side_index(mode, winner)
+    match_points = replace_at(state.points, w, state.points[w] + points)
+    result = RoundResult(r.number, r.hakem, r.trump, r.tricks_won, winner, points, kot)
+    champion = match_winner(mode, match_points, state.config.target_points)  # R3.5
+    successor = None if champion is not None else next_hakem(mode, r.hakem, winner)  # R3.3
+    events.append(
+        RoundEnded(r.number, r.hakem, r.tricks_won, winner, points, kot, match_points, successor)
+    )
+    state = replace(state, round=r, points=match_points, results=(*state.results, result))
+    if champion is not None:
+        events.append(MatchEnded(champion, match_points))
+        return replace(state, phase=Phase.MATCH_END, winner=champion), tuple(events)
+    return replace(state, phase=Phase.ROUND_END), tuple(events)
+
+
+def _next_round(state: MatchState, action: NextRound) -> Transition:
+    _check_phase(state, Phase.ROUND_END, action)
+    last = state.results[-1]
+    hakem = next_hakem(state.mode, last.hakem, last.winner)  # R3.3
+    # R3.4 every round shuffles the full deck again with its own round seed
+    return _start_round(state.config, last.number + 1, hakem, state.points, state.results)

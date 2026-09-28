@@ -1,2 +1,1 @@
-def main() -> None:
-    print("Hello HOKM!")
+"""Hokm × Jev: a Hokm engine, seat views and bots driven by Jev."""

@@ -10,7 +10,7 @@ requires-python = ">=3.12"
 dependencies = []
 
 [project.scripts]
-hokm = "hokm:main"
+hokm = "hokm.terminal:main"
 
 [build-system]
 requires = ["uv_build>=0.12.19,<0.13.0"]
@@ -45,5 +45,8 @@ strict = ["src/hokm/engine", "src/hokm/views"]
 testpaths = ["tests"]
 pythonpath = ["."]  # lets tests import shared helpers from tests/engine/support.py
 # importlib mode lets tests/ mirror src/hokm/ without unique file names or __init__.py
-addopts = ["--import-mode=importlib", "--strict-markers", "-m", "not live_jev"]
-markers = ["live_jev: calls the real Jev API (opt-in: uv run pytest -m live_jev)"]
+addopts = ["--import-mode=importlib", "--strict-markers", "-m", "not live_jev and not slow"]
+markers = [
+    "live_jev: calls the real Jev API (opt-in: uv run pytest -m live_jev)",
+    "slow: long-running gate tests (opt-in: uv run pytest -m slow)",
+]

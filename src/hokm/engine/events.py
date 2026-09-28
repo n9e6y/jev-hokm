@@ -8,7 +8,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from hokm.engine.cards import Card, Suit
-from hokm.engine.variants import Mode, Seat
+from hokm.engine.state import KotType
+from hokm.engine.variants import Mode, Seat, Side
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,6 +77,26 @@ class TrickWon:
     tricks_won: tuple[int, ...]  # per side, after this trick
 
 
+@dataclass(frozen=True, slots=True)
+class RoundEnded:
+    """R8 round result. `next_hakem` is None when this round ended the match (R3.5)."""
+
+    number: int
+    hakem: Seat
+    tricks_won: tuple[int, ...]  # per side
+    winner: Side
+    points: int
+    kot: KotType | None
+    match_points: tuple[int, ...]  # per side, after this round
+    next_hakem: Seat | None
+
+
+@dataclass(frozen=True, slots=True)
+class MatchEnded:
+    winner: Side
+    points: tuple[int, ...]  # final match points per side
+
+
 type Event = (
     MatchStarted
     | RoundStarted
@@ -86,4 +107,6 @@ type Event = (
     | DrawResolved
     | CardPlayed
     | TrickWon
+    | RoundEnded
+    | MatchEnded
 )
