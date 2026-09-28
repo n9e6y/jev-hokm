@@ -12,7 +12,7 @@ type Seat = Literal["S", "E", "N", "W", "A", "B"]
 type Side = Literal["NS", "EW", "A", "B"]
 
 # R2.1 counter-clockwise play order; R2.2 two seats alternate
-_SEATS: dict[Mode, tuple[Seat, ...]] = {"4p": ("S", "E", "N", "W"),"2p": ("A", "B")}
+_SEATS: dict[Mode, tuple[Seat, ...]] = {"4p": ("S", "E", "N", "W"), "2p": ("A", "B")}
 _SIDE_OF: dict[Seat, Side] = {"S": "NS", "N": "NS", "E": "EW", "W": "EW", "A": "A", "B": "B"}
 _SIDES: dict[Mode, tuple[Side, ...]] = {"4p": ("NS", "EW"), "2p": ("A", "B")}
 

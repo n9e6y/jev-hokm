@@ -43,6 +43,7 @@ strict = ["src/hokm/engine", "src/hokm/views"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]  # lets tests import shared helpers from tests/engine/support.py
 # importlib mode lets tests/ mirror src/hokm/ without unique file names or __init__.py
 addopts = ["--import-mode=importlib", "--strict-markers", "-m", "not live_jev"]
 markers = ["live_jev: calls the real Jev API (opt-in: uv run pytest -m live_jev)"]
