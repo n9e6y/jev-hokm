@@ -1,4 +1,5 @@
 # Hokm × Jev
+⚠️ I'm working on it and project is not finished
 
 Play Hokm (Persian trick-taking card game) against bots driven by Jev, TypeSafe's System One decision model, and study how they decide.
 

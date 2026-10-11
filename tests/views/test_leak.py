@@ -126,11 +126,18 @@ def test_views_do_not_depend_on_any_hidden_card(
     for state, seq in live_moments(random_match(mode, seed, target=target)):
         for seat in seats(mode):
             view = build_view(state, seat, decision_seq=seq, forgetfulness=p, forget_seed=perm_seed)
-            permuted, changed = permute_hidden_tracked(state, seat, rng)
-            assert to_json(
-                build_view(permuted, seat, decision_seq=seq, forgetfulness=p, forget_seed=perm_seed)
-            ) == to_json(view), f"{view['phase']} view of {seat} changed when hidden cards moved"
-            shuffled |= {(view["phase"], kind) for kind in changed}
+            # two independent shuffles per moment: a small slot (the opponent's 2 discards in the
+            # discard phase exist at one moment per round) rarely comes back unchanged twice
+            for _ in range(2):
+                permuted, changed = permute_hidden_tracked(state, seat, rng)
+                assert to_json(
+                    build_view(
+                        permuted, seat, decision_seq=seq, forgetfulness=p, forget_seed=perm_seed
+                    )
+                ) == to_json(view), (
+                    f"{view['phase']} view of {seat} changed when hidden cards moved"
+                )
+                shuffled |= {(view["phase"], kind) for kind in changed}
     assert MUST_SHUFFLE[mode] <= shuffled, MUST_SHUFFLE[mode] - shuffled
 
 
