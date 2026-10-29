@@ -7,7 +7,9 @@ authors = [
     { name = "Nima", email = "n9e6y@outlook.com" }
 ]
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "pydantic>=2.14.1",
+]
 
 [project.scripts]
 hokm = "hokm.terminal:main"

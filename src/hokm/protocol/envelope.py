@@ -1,0 +1,45 @@
+"""Server → client messages other than events: snapshot, ack, error (docs/PROTOCOL.md)."""
+
+from __future__ import annotations
+
+from typing import Annotated, Literal
+from uuid import UUID
+
+from pydantic import Field, JsonValue
+
+from hokm.engine.variants import Seat
+from hokm.protocol.errors import ErrorCode
+from hokm.protocol.events import EventMsg
+from hokm.protocol.types import PROTOCOL_VERSION, WireModel
+
+
+class _Msg(WireModel):
+    v: Literal[1] = PROTOCOL_VERSION
+    match_id: str
+
+
+class SnapshotMsg(_Msg):
+    """State of one seat (or an observer) at `seq`. The view layout is settled with the server
+    in 3.4; until then `view` is the seat view JSON, passed through as data."""
+
+    type: Literal["snapshot"] = "snapshot"
+    seq: Annotated[int, Field(ge=0)]
+    view: dict[str, JsonValue]
+    whose_turn: Seat | None = None
+
+
+class AckMsg(_Msg):
+    type: Literal["ack"] = "ack"
+    intent_id: UUID
+
+
+class ErrorMsg(_Msg):
+    type: Literal["error"] = "error"
+    intent_id: UUID | None = None  # None when the payload was too broken to carry one
+    code: ErrorCode
+    message: str
+
+
+type ServerMessage = Annotated[
+    SnapshotMsg | AckMsg | ErrorMsg | EventMsg, Field(discriminator="type")
+]
