@@ -37,11 +37,13 @@ class PlayCardIntent(_Intent):
 
 
 class RequestHintIntent(_Intent):
+    """Phase 5+ (task 5.4, advisor). Not in `Intent` yet, so clients cannot send it."""
+
     intent: Literal["request_hint"] = "request_hint"
 
 
 type ActionIntent = ChooseTrumpIntent | DiscardIntent | DrawDecisionIntent | PlayCardIntent
 type Intent = Annotated[
-    ChooseTrumpIntent | DiscardIntent | DrawDecisionIntent | PlayCardIntent | RequestHintIntent,
+    ChooseTrumpIntent | DiscardIntent | DrawDecisionIntent | PlayCardIntent,
     Field(discriminator="intent"),
 ]

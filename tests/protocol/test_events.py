@@ -1,14 +1,16 @@
+import json
 import typing
 
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
 from hokm.engine import events as engine_events
-from hokm.protocol import ServerMessage, engine_event_to_wire, event_message
+from hokm.protocol import ObserverMessage, PlayerMessage, engine_event_to_wire, event_message
 from hokm.protocol import events as wire
 from tests.engine.support import random_match
 
-ADAPTER = TypeAdapter(ServerMessage)
+ADAPTER = TypeAdapter(PlayerMessage)
+OBSERVER = TypeAdapter(ObserverMessage)
 
 
 def test_every_engine_event_has_a_wire_message_with_the_same_name():
@@ -28,10 +30,39 @@ def test_every_event_of_random_matches_round_trips(mode, seed):
         assert ADAPTER.validate_json(msg.model_dump_json()) == msg
 
 
-def test_redacted_payload_is_the_same_model_with_none():
-    hidden = wire.CardDiscardedPayload(seat="A", card=None)
+@pytest.mark.parametrize(
+    "hidden",
+    [
+        wire.CardDiscardedPayload(seat="A"),
+        wire.DrawResolvedPayload(seat="B"),
+    ],
+)
+def test_hidden_cards_are_left_out_so_others_get_seat_only(hidden):
     msg = event_message("m_1", 3, hidden)
+    assert json.loads(msg.model_dump_json())["payload"] == {"seat": hidden.seat}
     assert ADAPTER.validate_json(msg.model_dump_json()) == msg
+
+
+def test_owner_still_sees_the_hidden_cards():
+    shown = wire.DrawResolvedPayload(seat="B", kept="AS", dropped="2H")
+    payload = json.loads(event_message("m_1", 3, shown).model_dump_json())["payload"]
+    assert payload == {"seat": "B", "kept": "AS", "dropped": "2H"}
+
+
+def test_bot_events_reach_observers_but_not_players():
+    for payload in (
+        wire.BotDecisionPayload(seat="A", decision_id="d_1"),
+        wire.BotPausedPayload(seat="A", reason="transport_error"),
+    ):
+        text = event_message("m_1", 9, payload).model_dump_json()
+        assert OBSERVER.validate_json(text).model_dump_json() == text
+        with pytest.raises(ValidationError):
+            ADAPTER.validate_json(text)
+
+
+def test_pause_reason_is_a_fixed_vocabulary():
+    with pytest.raises(ValidationError):
+        wire.BotPausedPayload(seat="A", reason="HTTP 500: {'hand': ['AS']}")  # type: ignore[arg-type]
 
 
 def test_bad_card_and_extra_fields_are_rejected():

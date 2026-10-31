@@ -1,8 +1,10 @@
 """Event payloads and the `event` messages that carry them (docs/PROTOCOL.md).
 
-Names match `hokm.engine.events` exactly. A payload model is also its own redacted form:
-a field the receiving seat may not see is `None` (see `CardDiscardedPayload`). The redaction
-functions themselves arrive with the server (3.4).
+Names match `hokm.engine.events` exactly. A payload model is also its own redacted form: a
+field the receiving seat may not see is left out of the JSON (`HiddenCard`), so others get
+`{seat}` only. The redaction functions themselves arrive with the server (3.4).
+
+Bot events go to observers and admins only, so players and observers get separate unions.
 """
 
 from __future__ import annotations
@@ -14,6 +16,13 @@ from pydantic import Field
 from hokm.engine.state import KotType
 from hokm.engine.variants import Mode, Seat, Side
 from hokm.protocol.types import PROTOCOL_VERSION, CardStr, SuitLetter, WireModel
+
+# A card the receiving seat may not see: None, and left out of the JSON entirely.
+HiddenCard = Annotated[CardStr | None, Field(exclude_if=lambda v: v is None)]
+
+# docs/JEV.md guard policy: transport failure after backoff, or 3 invalid answers. A fixed
+# vocabulary, so no exception text or Jev response body can reach a client.
+type PauseReason = Literal["transport_error", "invalid_answers"]
 
 # --- payloads ----------------------------------------------------------------------------------
 
@@ -41,7 +50,7 @@ class TrumpDeclaredPayload(WireModel):
 
 class CardDiscardedPayload(WireModel):
     seat: Seat
-    card: CardStr | None  # None for everyone but `seat` (R5.3)
+    card: HiddenCard = None  # only `seat` sees it (R5.3)
 
 
 class CardShownPayload(WireModel):
@@ -51,8 +60,8 @@ class CardShownPayload(WireModel):
 
 class DrawResolvedPayload(WireModel):
     seat: Seat
-    kept: CardStr | None  # None for everyone but `seat` (R5.4)
-    dropped: CardStr | None
+    kept: HiddenCard = None  # only `seat` sees them (R5.4)
+    dropped: HiddenCard = None
 
 
 class CardPlayedPayload(WireModel):
@@ -93,7 +102,7 @@ class BotPausedPayload(WireModel):
     """Server-only: a bot could not answer and the game is paused."""
 
     seat: Seat
-    reason: str
+    reason: PauseReason
 
 
 type WirePayload = (
@@ -187,7 +196,7 @@ class BotPausedMsg(_EventMsg):
     payload: BotPausedPayload
 
 
-type EventMsg = Annotated[
+type _GameEventMsg = (
     MatchStartedMsg
     | RoundStartedMsg
     | CardsDealtMsg
@@ -199,9 +208,12 @@ type EventMsg = Annotated[
     | TrickWonMsg
     | RoundEndedMsg
     | MatchEndedMsg
-    | BotDecisionMsg
-    | BotPausedMsg,
-    Field(discriminator="name"),
+)
+# What a player socket may receive: game events only, never bot internals.
+type PlayerEventMsg = Annotated[_GameEventMsg, Field(discriminator="name")]
+# Observers and admins also see bot decisions and pauses.
+type ObserverEventMsg = Annotated[
+    _GameEventMsg | BotDecisionMsg | BotPausedMsg, Field(discriminator="name")
 ]
 
 MESSAGE_FOR: dict[type[WirePayload], type[_EventMsg]] = {

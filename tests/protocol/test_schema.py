@@ -1,8 +1,9 @@
 import json
 
-from hokm.protocol.schema import client_schema, server_schema
+from hokm.protocol.schema import client_schema, observer_schema, player_schema
 
-FORBIDDEN = {"seed", "forget_seed", "stock", "all_hands", "truth"}
+# Substrings, so variants such as `truth_snapshots`, `all_hands` or `stock_order` are caught too.
+SECRET_PARTS = ("seed", "stock", "hand", "deck", "truth", "rng")
 
 
 def property_names(node) -> set[str]:
@@ -17,14 +18,28 @@ def property_names(node) -> set[str]:
     return names
 
 
+def secret_names(schema) -> set[str]:
+    return {n for n in property_names(schema) if any(part in n for part in SECRET_PARTS)}
+
+
 def test_no_server_message_has_a_secret_field():
-    assert not property_names(server_schema()) & FORBIDDEN
+    assert not secret_names(player_schema())
+    assert not secret_names(observer_schema())
+
+
+def test_bot_events_are_observer_only():
+    player = json.dumps(player_schema())
+    observer = json.dumps(observer_schema())
+    for name in ("BotDecision", "BotPaused"):
+        assert name not in player
+        assert name in observer
 
 
 def test_discriminators_for_the_ts_generator():
-    server, client = server_schema(), client_schema()
-    assert server["discriminator"]["propertyName"] == "type"
+    player, observer, client = player_schema(), observer_schema(), client_schema()
+    assert player["discriminator"]["propertyName"] == "type"
+    assert observer["discriminator"]["propertyName"] == "type"
     assert client["discriminator"]["propertyName"] == "intent"
-    assert len(client["oneOf"]) == 5
-    assert json.loads(json.dumps(server)) == server  # plain JSON
-    assert json.loads(json.dumps(client)) == client
+    assert len(client["oneOf"]) == 4  # request_hint arrives in 5.4
+    for schema in (player, observer, client):
+        assert json.loads(json.dumps(schema)) == schema  # plain JSON

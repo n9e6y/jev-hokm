@@ -14,7 +14,6 @@ from hokm.protocol.intents import (
     DiscardIntent,
     DrawDecisionIntent,
     PlayCardIntent,
-    RequestHintIntent,
 )
 from tests.engine.support import next_action, start
 
@@ -45,14 +44,13 @@ def test_every_legal_action_survives_the_wire(mode, seed):
             assert seat is not None
             for action in legal_actions(state, seat):
                 intent = ADAPTER.validate_json(to_intent(action).model_dump_json())
-                assert not isinstance(intent, RequestHintIntent)
                 assert intent_to_action(seat, intent) == action
         state, _ = apply(state, next_action(state, rng.choice))
 
 
-def test_request_hint_has_no_engine_action():
-    intent = ADAPTER.validate_python({"v": 1, "intent": "request_hint", "intent_id": str(uuid4())})
-    assert isinstance(intent, RequestHintIntent)
+def test_request_hint_is_refused_until_phase_5():
+    with pytest.raises(ValidationError):
+        ADAPTER.validate_python({"v": 1, "intent": "request_hint", "intent_id": str(uuid4())})
 
 
 ID = str(uuid4())
