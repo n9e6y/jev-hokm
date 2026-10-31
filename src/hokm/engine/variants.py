@@ -16,6 +16,7 @@ _SEATS: dict[Mode, tuple[Seat, ...]] = {"4p": ("S", "E", "N", "W"), "2p": ("A", 
 _SIDE_OF: dict[Seat, Side] = {"S": "NS", "N": "NS", "E": "EW", "W": "EW", "A": "A", "B": "B"}
 _SIDES: dict[Mode, tuple[Side, ...]] = {"4p": ("NS", "EW"), "2p": ("A", "B")}
 
+RULES_VERSION = "v1"  # docs/RULES.md "Rules version"; stored with every match
 MATCH_TARGETS: tuple[int, ...] = (1, 3, 5, 7)  # R3.1
 DEFAULT_REMOVED_CARDS: tuple[Card, ...] = parse_cards("2S 2C")  # R1.4 the black twos
 
