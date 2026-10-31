@@ -4,6 +4,8 @@ from hokm.protocol.schema import client_schema, observer_schema, player_schema
 
 # Substrings, so variants such as `truth_snapshots`, `all_hands` or `stock_order` are caught too.
 SECRET_PARTS = ("seed", "stock", "hand", "deck", "truth", "rng")
+# The seat's own hand (SEAT_VIEW.md) and `stock_left`, a count every seat sees (R5.4).
+ALLOWED = {"hand", "stock_left"}
 
 
 def property_names(node) -> set[str]:
@@ -19,7 +21,8 @@ def property_names(node) -> set[str]:
 
 
 def secret_names(schema) -> set[str]:
-    return {n for n in property_names(schema) if any(part in n for part in SECRET_PARTS)}
+    names = property_names(schema) - ALLOWED
+    return {n for n in names if any(part in n for part in SECRET_PARTS)}
 
 
 def test_no_server_message_has_a_secret_field():
